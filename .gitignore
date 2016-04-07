@@ -60,3 +60,13 @@ target/
 
 #Ipython Notebook
 .ipynb_checkpoints
+
+# Virtual Environment
+venv/
+.venv/
+
+# PyCharm
+.idea/
+
+# vim temporary
+*~
