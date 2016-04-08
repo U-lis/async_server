@@ -8,7 +8,7 @@ from config import MATCH_HOST, MATCH_PORT
 Client = namedtuple('Client', 'reader writer')
 
 
-class MatchServer:
+class MatchServer:  # BaseServer
     def __init__(self):
         self.loop = asyncio.get_event_loop()
         self.server = None
@@ -27,21 +27,32 @@ class MatchServer:
     @asyncio.coroutine
     def client_connected(self, reader, writer):
         peername = writer.transport.get_extra_info('peername')
+        print("Peer: {}".format(peername))
         new_client = Client(reader, writer)
         self.clients[peername] = new_client
-        print(self.clients)
+
+        print(self.clients.keys())
 
         while not reader.at_eof():
             try:
                 msg = yield from reader.readline()
-                print(msg)
-                if msg == 'close()':
+                msg = msg.decode('utf-8').strip()
+                if not msg:
+                    continue
+                elif msg == 'close()':
+                    print("{} Closed".format(peername))
                     del self.clients[peername]
                     writer.write_eof()
                 else:
-                    data = json.loads(msg.decode('utf-8'))
-                    target_func = getattr(self.controller, data['type'])
-                    self.send_to_client(peername, target_func(data))
+                    data = json.loads(msg)
+                    cmd = data['type']
+                    if cmd == 'enqueue':
+                        result = self.controller.enqueue(data)
+                        if result['match']:
+                            self.send_to_all_clients(None, self.controller.return_structure(*result))
+                    else:
+                        result = self.controller.return_structure(False, tuple(), "Invalid Command")
+                        writer.write(bytearray(result.encode('utf-8')))
 
             except ConnectionResetError as e:
                 print('ConnectionError: {}'.format(e))
@@ -62,6 +73,7 @@ class MatchServer:
     def close(self):
         for peername, client in self.clients.items():
             client.writer.write_eof()
+        self.controller.dequeue_all()
         self.loop.stop()
 
 
