@@ -7,4 +7,5 @@ function setup_package() {
 
 echo "[Jenkins Test]"
 virtualenv -p python3 .venv
+. .venv/bin/activate
 setup_package
